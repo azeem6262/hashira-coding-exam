@@ -70,6 +70,7 @@ function polyMulLinear(a, xj) {
 }
 
 
+
 function interpolate(points) {
   const k = points.length;           // degree m = k-1
   let coeff = new Array(k).fill(null).map(() => new Rat(0n));
@@ -89,7 +90,6 @@ function interpolate(points) {
   return coeff;
 }
 
-// ---------- Main ----------
 (async function main() {
   let raw = "";
   for await (const chunk of process.stdin) raw += chunk;
