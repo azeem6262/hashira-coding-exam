@@ -112,19 +112,9 @@ function interpolate(points) {
 
   const coeff = interpolate(chosen);
 
-  const m = k - 1;
-  console.log(JSON.stringify({
-    degree: m,
-    used_points: chosen.map(p => ({ x: p.x, y: p.y.toString() })),
-    coefficients_asc: coeff.map(c => c.toString()), // a0..am
-    pretty: coeff.slice().reverse().map((c, idx) => {
-      const deg = m - idx;
-      const s = c.toString();
-      if (deg === 0) return `${s}`;
-      if (deg === 1) return `${s}*x`;
-      return `${s}*x^${deg}`;
-    }).join(" + ")
-  }, null, 2));
+  // Output only the constant term (secret)
+  const a0 = coeff[0].toString();
+  console.log(a0);
 })().catch(e => {
   console.error(e);
   process.exit(1);
