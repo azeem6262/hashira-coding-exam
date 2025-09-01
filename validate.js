@@ -1,13 +1,11 @@
 "use strict";
 
-
 function bigintAbs(a) { return a < 0n ? -a : a; }
 function bigintGcd(a, b) {
   a = bigintAbs(a); b = bigintAbs(b);
   while (b !== 0n) { const t = a % b; a = b; b = t; }
   return a;
 }
-
 
 class Rat {
   constructor(num, den = 1n) {
@@ -18,7 +16,6 @@ class Rat {
     this.num = num / g;
     this.den = den / g;
   }
-  static fromBigInt(x) { return new Rat(x, 1n); }
   add(o) { return new Rat(this.num * o.den + o.num * this.den, this.den * o.den); }
   sub(o) { return new Rat(this.num * o.den - o.num * this.den, this.den * o.den); }
   mul(o) { return new Rat(this.num * o.num, this.den * o.den); }
@@ -26,12 +23,11 @@ class Rat {
   toString() { return this.den === 1n ? this.num.toString() : `${this.num}/${this.den}`; }
 }
 
-
 function charToDigit(ch) {
   const code = ch.codePointAt(0);
-  if (code >= 48 && code <= 57) return BigInt(code - 48);        // 0-9
-  if (code >= 65 && code <= 90) return BigInt(code - 55);         // A-Z
-  if (code >= 97 && code <= 122) return BigInt(code - 87);        // a-z
+  if (code >= 48 && code <= 57) return BigInt(code - 48);
+  if (code >= 65 && code <= 90) return BigInt(code - 55);
+  if (code >= 97 && code <= 122) return BigInt(code - 87);
   throw new Error(`Invalid digit '${ch}'`);
 }
 function parseInBase(str, base) {
@@ -45,7 +41,6 @@ function parseInBase(str, base) {
   return val;
 }
 
-
 function polyAdd(a, b) {
   const n = Math.max(a.length, b.length);
   const out = new Array(n).fill(null).map(() => new Rat(0n));
@@ -56,27 +51,22 @@ function polyAdd(a, b) {
   }
   return out;
 }
-function polyScale(a, s) {
-  return a.map(c => c.mul(s));
-}
+function polyScale(a, s) { return a.map(c => c.mul(s)); }
 function polyMulLinear(a, xj) {
   const out = new Array(a.length + 1).fill(null).map(() => new Rat(0n));
   const negXj = new Rat(-xj, 1n);
   for (let d = 0; d < a.length; d++) {
-    out[d]   = out[d].add(a[d].mul(negXj)); // * (-xj)
-    out[d+1] = out[d+1].add(a[d]);          // * x
+    out[d]   = out[d].add(a[d].mul(negXj));
+    out[d+1] = out[d+1].add(a[d]);
   }
   return out;
 }
 
-
-
 function interpolate(points) {
-  const k = points.length;           // degree m = k-1
+  const k = points.length;
   let coeff = new Array(k).fill(null).map(() => new Rat(0n));
   const X = points.map(p => BigInt(p.x));
   const Y = points.map(p => new Rat(BigInt(p.y), 1n));
-
   for (let i = 0; i < k; i++) {
     let basis = [ new Rat(1n) ];
     let denom = new Rat(1n);
@@ -90,30 +80,28 @@ function interpolate(points) {
   return coeff;
 }
 
-(function initCombinations(){})();
-function combinationsIdx(n, k) {
-  const result = [];
-  const idx = new Array(k).fill(0);
-  for (let i = 0; i < k; i++) idx[i] = i;
-  while (true) {
-    result.push(idx.slice());
-    let i = k - 1;
-    while (i >= 0 && idx[i] === n - k + i) i--;
-    if (i < 0) break;
-    idx[i]++;
-    for (let j = i + 1; j < k; j++) idx[j] = idx[j - 1] + 1;
+function combinations(arr, k) {
+  const res = [];
+  const idx = [];
+  function backtrack(start, depth) {
+    if (depth === k) {
+      res.push(idx.slice());
+      return;
+    }
+    for (let i = start; i <= arr.length - (k - depth); i++) {
+      idx[depth] = arr[i];
+      backtrack(i + 1, depth + 1);
+    }
   }
-  return result;
+  backtrack(0, 0);
+  return res;
 }
 
 (async function main() {
-  let raw = "";
-  for await (const chunk of process.stdin) raw += chunk;
+  const fs = require("fs");
+  const raw = fs.readFileSync("input.json", "utf8");
   const input = JSON.parse(raw);
-
-  const n = input.keys.n;
   const k = input.keys.k;
-  if (k < 1 || n < k) throw new Error("Invalid n,k");
 
   const pts = [];
   for (const key of Object.keys(input)) {
@@ -124,24 +112,52 @@ function combinationsIdx(n, k) {
     pts.push({ x, y });
   }
   pts.sort((a, b) => a.x - b.x);
-  const nPts = pts.length;
 
-  // Try all k-point subsets; select the a0 that appears most frequently
   const freq = new Map();
-  const combos = combinationsIdx(nPts, k);
-  let bestVal = null;
-  let bestCount = -1;
-  for (const comb of combos) {
-    const chosen = comb.map(i => pts[i]);
+  const rep = new Map();
+  const idxs = combinations([...pts.keys()], k);
+  for (const idxset of idxs) {
+    const chosen = idxset.map(i => pts[i]);
     const coeff = interpolate(chosen);
     const a0 = coeff[0].toString();
-    const count = (freq.get(a0) || 0) + 1;
-    freq.set(a0, count);
-    if (count > bestCount) { bestCount = count; bestVal = a0; }
+    if (!freq.has(a0)) { freq.set(a0, 0); rep.set(a0, idxset.slice()); }
+    freq.set(a0, freq.get(a0) + 1);
   }
 
-  console.log(bestVal);
-})().catch(e => {
-  console.error(e);
-  process.exit(1);
-});
+  let bestVal = null, bestCount = -1;
+  for (const [val, count] of freq.entries()) {
+    if (count > bestCount) { bestCount = count; bestVal = val; }
+  }
+
+  console.log(`Most frequent a0: ${bestVal} (count=${bestCount})`);
+
+  // Reconstruct polynomial from a representative subset
+  const subset = rep.get(bestVal);
+  const chosen = subset.map(i => pts[i]);
+  const coeff = interpolate(chosen);
+
+  function evalPolyAt(coeff, x) {
+    let acc = new Rat(0n);
+    let pow = new Rat(1n);
+    const X = new Rat(BigInt(x), 1n);
+    for (const c of coeff) {
+      acc = acc.add(c.mul(pow));
+      pow = pow.mul(X);
+    }
+    return acc;
+  }
+
+  // Check which points fit exactly
+  const fits = [];
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const val = evalPolyAt(coeff, p.x);
+    // Compare as exact rationals
+    const target = new Rat(BigInt(p.y), 1n);
+    const matches = val.num === target.num && val.den === target.den;
+    if (matches) fits.push(i);
+  }
+  console.log(`Fits points (0-based indices): ${JSON.stringify(fits)}`);
+})();
+
+
